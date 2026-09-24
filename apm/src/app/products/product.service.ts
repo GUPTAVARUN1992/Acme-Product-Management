@@ -1,10 +1,11 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Product } from './product';
-import { catchError, map, Observable, of, switchMap, tap, EMPTY } from 'rxjs';
+import { catchError, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { ProductData } from './product-data';
+import { HttpErrorService } from '../utilities/http-error.service';
 import { ReviewService } from '../reviews/review.service';
 import { Review } from '../reviews/review';
-import { HttpErrorService } from '../utilities/http-error.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,41 +13,34 @@ import { HttpErrorService } from '../utilities/http-error.service';
 export class ProductService {
   private productsUrl = 'api/products';
   private http = inject(HttpClient);
-  private reviewService = inject(ReviewService);
   private errorService = inject(HttpErrorService);
-  private errorMessage: string = "";
+  private reviewService = inject(ReviewService);
   readonly products$ = this.http.get<Product[]>(this.productsUrl)
     .pipe(
       tap(() => console.log('fetched products')),
-      catchError(err => this.handeError(err))
+      catchError(err => this.handleError(err))
     );
 
   getProduct(id: number) : Observable<Product> {
     const url = `${this.productsUrl}/${id}`;
     return this.http.get<Product>(url)
     .pipe(
-      tap(() => console.log(`fetched product id=${id}`)),
-      switchMap(product => this.getProductWithReviews(product)),
-      catchError(err => this.handeError(err))
+      switchMap(product => this.getProductsWithReviews(product)),
+      catchError(err => this.handleError(err))
     );
   }
-
-  private getProductWithReviews(product: Product) : Observable<Product> {
-    if(product.hasReviews)
-    {
+  getProductsWithReviews(product: Product) : Observable<Product> {
+    if(product.hasReviews) {
       return this.http.get<Review[]>(this.reviewService.getReviewUrl(product.id))
       .pipe(
         map(reviews => ({...product, reviews} as Product))
       )
-    }
-    else {
+    } else {
       return of(product);
     }
   }
-  private handeError(err : HttpErrorResponse)
-  {
-    this.errorMessage =  this.errorService.formatError(err);
-    return new Observable<Product>();
+  private handleError(err: HttpErrorResponse) : Observable<never> {
+    const formattedMessage = this.errorService.formatError(err);
+    return throwError(() => formattedMessage);
   }
-
 }
