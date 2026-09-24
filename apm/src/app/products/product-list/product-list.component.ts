@@ -18,7 +18,6 @@ export class ProductListComponent{
   // Products
   readonly products$ = this.productService.products$
     .pipe(
-      tap(() => console.log('prodouct list - fetched products')),
       catchError(err => {
         this.errorMessage = err;
         return EMPTY;
