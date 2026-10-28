@@ -1,8 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Product } from './product';
-import { catchError, map, Observable, of, shareReplay, switchMap, tap, throwError, BehaviorSubject, filter } from 'rxjs';
-import { ProductData } from './product-data';
+import { catchError, map, Observable, of, shareReplay, switchMap, tap, throwError, BehaviorSubject, filter, combineLatest } from 'rxjs';
 import { HttpErrorService } from '../utilities/http-error.service';
 import { ReviewService } from '../reviews/review.service';
 import { Review } from '../reviews/review';
@@ -18,6 +17,7 @@ export class ProductService {
 
   private productSelectedSubject = new BehaviorSubject<number | undefined>(undefined);
   readonly productSelected$ = this.productSelectedSubject.asObservable();
+  
   readonly products$ = this.http.get<Product[]>(this.productsUrl)
     .pipe(
       tap(p => console.log(JSON.stringify(p))),
@@ -25,7 +25,7 @@ export class ProductService {
       catchError(err => this.handleError(err))
     );
 
-  readonly product$ = this.productSelected$
+  readonly product1$ = this.productSelected$
   .pipe(
     filter(Boolean),
     switchMap(id => {
@@ -36,6 +36,18 @@ export class ProductService {
         catchError(err => this.handleError(err))
       );
     })
+  );
+  
+  product$ = combineLatest([
+    this.productSelected$,
+    this.products$
+  ]).pipe(
+    map(([selectedProductId, products]) => 
+      products.find(product => product.id === selectedProductId)
+    ),
+    filter(Boolean),
+    switchMap(product => this.getProductsWithReviews(product)),
+    catchError(err => this.handleError(err))
   );
 
   productSelected(selectedProductId: number): void {
